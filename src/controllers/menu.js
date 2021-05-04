@@ -1,37 +1,17 @@
-const cloudinary = require('cloudinary');
 const fs = require('fs-extra');
 const Menu = require('../models/menu');
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
+const cloudinary = require('../util/cloudinary');
 
+/**
+ * Método para listar todos los registros con paginación
+ *
+ * @param {Request} req objeto que contiene información sobre la solicitud HTTP
+ * @param {Response} res objeto que devuelve información sobre la respuesta HTTP
+ */
 async function findAll(req, res) {
   try {
-    const findAll = await Menu.find();
-    res.json(findAll);
-  } catch (err) {
-    console.error(err);
-    res.status(500).send({ message: err.message });
-  }
-}
-
-async function insert(req, res) {
-  try {
-    const { type, name, description, price } = req.body;
-    const result = await cloudinary.v2.uploader.upload(req.file.path);
-    const menu = new Menu({
-      type,
-      name,
-      description,
-      price,
-      image: result.url,
-      public_id: result.public_id,
-    });
-    await menu.save();
-    await fs.unlink(req.file.path);
-    res.json({ status: 'Menu saved!' });
+    const menus = await Menu.find();
+    res.status(200).send(menus);
   } catch (err) {
     console.error(err);
     res.status(500).send({ message: err.message });
@@ -40,9 +20,47 @@ async function insert(req, res) {
 
 async function findById(req, res) {
   try {
-    const menu = await Menu.findById(req.params.id);
-    res.status(200).send(menu);
+    const { id } = req.params;
+    const menu = await Menu.findById(id);
+    if (menu) {
+      res.status(200).send(menu);
+    } else {
+      res.status(404).send({
+        message: `No se encontró el menu con id: ${id}`,
+      });
+    }
   } catch (error) {
+    console.error(err);
+    res.status(500).send({ message: err.message });
+  }
+}
+
+/**
+ * Método para insertar un menu
+ *
+ * @param {Request} req objeto que contiene información sobre la solicitud HTTP
+ * @param {Response} res objeto que devuelve información sobre la respuesta HTTP
+ */
+async function insert(req, res) {
+  try {
+    const result = await cloudinary.v2.uploader.upload(req.file.path);
+    const menu = new Menu({
+      type: req.body.type,
+      name: req.body.name,
+      description: req.body.description,
+      price: req.body.price,
+      image: result.secure_url,
+      public_id: result.public_id,
+    });
+    await menu.save();
+    await fs.unlink(req.file.path);
+    res.status(201).send({
+      message: 'El Menu se creó con éxito.',
+    });
+  } catch (err) {
+    if (req.file) {
+      await fs.unlink(req.file.path);
+    }
     console.error(err);
     res.status(500).send({ message: err.message });
   }
@@ -51,14 +69,40 @@ async function findById(req, res) {
 async function update(req, res) {
   try {
     const { id } = req.params;
-    const menu = {
-      type: req.body.type,
-      name: req.body.name,
-      description: req.body.description,
-      price: req.body.price,
-    };
+    const data = await Menu.findById(id);
+    let menu;
+    if (req.file) {
+      await cloudinary.v2.uploader.destroy(data.public_id);
+      const upload = await cloudinary.v2.uploader.upload(req.file.path);
+      menu = {
+        type: req.body.type,
+        name: req.body.name,
+        description: req.body.description,
+        price: req.body.price,
+        image: upload.secure_url,
+        public_id: upload.public_id,
+      };
+    } else {
+      menu = {
+        type: req.body.type,
+        name: req.body.name,
+        description: req.body.description,
+        price: req.body.price,
+      };
+    }
     await Menu.findByIdAndUpdate(id, { $set: menu }, { new: true });
-    res.status(200).send({ status: 'Se actualizó el menu correctamente.' });
+    if (!menu) {
+      res.status(404).send({
+        message: `No se puede actualizar el menu con id: ${id}.`,
+      });
+    } else {
+      res.status(200).send({
+        message: 'El menu se actualizó con éxito.',
+      });
+    }
+    if (req.file) {
+      await fs.unlink(req.file.path);
+    }
   } catch (err) {
     console.error(err);
     res.status(500).send({ message: err.message });
@@ -67,10 +111,18 @@ async function update(req, res) {
 
 async function destroy(req, res) {
   try {
-    const menu = await Menu.findByIdAndRemove(req.params.id);
-    const result = await cloudinary.v2.uploader.destroy(menu.public_id);
-    console.log(result);
-    res.status(204).end();
+    const { id } = req.params;
+    const menu = await Menu.findByIdAndRemove(id);
+    if (!menu) {
+      res.status(404).send({
+        message: `No se puede eliminar el menu con id: ${id}.`,
+      });
+    } else {
+      await cloudinary.v2.uploader.destroy(menu.public_id);
+      res.status(200).send({
+        message: 'El menu se eliminó con éxito.',
+      });
+    }
   } catch (err) {
     console.error(err);
     res.status(500).send({ message: err.message });
