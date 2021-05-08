@@ -16,6 +16,7 @@ const mongoose = require('mongoose');
 // Local variables
 require('./util/passport-config');
 const app = express();
+const authRouter = require('./routes/auth');
 const userRouter = require('./routes/user');
 const menuRouter = require('./routes/menu');
 const orderRouter = require('./routes/order');
@@ -52,7 +53,8 @@ mongoose.connection.once('error', (err) => console.error('Error: ', err));
 /**
  * Routes
  */
-app.use('/api', userRouter);
+app.use('/api', authRouter);
+app.use('/api/users', userRouter);
 app.use('/api/menus/', menuRouter);
 app.use('/api/orders', orderRouter);
 

@@ -21,12 +21,13 @@ async function register(req, res) {
   }
 }
 
-function authenticate(req, res, next) {
+async function authenticate(req, res, next) {
   passport.authenticate('local', (err, user, info) => {
     if (err) {
       return res.status(400).send(err);
     } else if (user) {
-      return res.status(200).send({ token: user.generateJwt() });
+      const token = await user.generateJwt();
+      return res.status(200).send({ token });
     } else {
       return res.status(404).send(info);
     }
@@ -61,8 +62,8 @@ async function putForgot(req, res) {
     }
     user.resetPasswordToken = token;
     user.resetPasswordExpires = Date.now() + 3600000;
-    const host = req.headers.host;
-    const host_local = 'localhost:4200';
+    // req.headers.host;
+    const host = process.env.APP_URL;
     await user.save();
     const msg = {
       to: email,
@@ -106,7 +107,7 @@ async function putReset(req, res) {
     await user.save();
     const msg = {
       to: user.email,
-      from: process.env.GMAIL_USER,
+      from: process.env.EMAIL_USER,
       subject: 'Your password has been changed',
       text:
         'Hello,\n\n' +

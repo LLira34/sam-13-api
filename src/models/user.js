@@ -42,12 +42,26 @@ UserSchema.pre('save', (next) => {
 
 // Methods
 UserSchema.methods.verifyPassword = (password) => {
-  return bcrypt.compareSync(password, this.password);
+  return new Promise((resolve, reject) => {
+    const match = bcrypt.compareSync(password, this.password);
+    if (!match) {
+      reject(match);
+    }
+    resolve(match);
+  });
 };
 
 UserSchema.methods.generateJwt = () => {
-  return jwt.sign({ _id: this._id }, process.env.JWT_SECRET, {
-    expiresIn: process.env.JWT_EXP,
+  return new Promise((resolve, reject) => {
+    const token = jwt.sign({ _id: this._id }, process.env.JWT_SECRET, {
+      expiresIn: process.env.JWT_EXP,
+    });
+    if (token === '') {
+      const error = new Error();
+      error.message = 'No token generate';
+      reject(error);
+    }
+    resolve(token);
   });
 };
 
