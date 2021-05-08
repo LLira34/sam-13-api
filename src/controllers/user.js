@@ -1,16 +1,16 @@
 const User = require('../models/user');
-const userCtrl = {};
 
-// CRUD methods
-userCtrl.getUsers = async (req, res) => {
+async function findAll(req, res) {
   const users = await User.find();
   res.json(users);
-};
-userCtrl.getUser = async (req, res) => {
+}
+
+async function findById(req, res) {
   const user = await User.findById(req.params.id);
   res.json(user);
-};
-userCtrl.editUser = async (req, res, next) => {
+}
+
+async function update(req, res, next) {
   const { id } = req.params;
   const user = {
     fullname: req.body.fullname,
@@ -26,12 +26,14 @@ userCtrl.editUser = async (req, res, next) => {
       if (!err) res.send(doc);
       else {
         console.log(err);
-        if (err.code == 11000)
+        if (err.code === 11000) {
           res.status(422).send(['Duplicate email adrress found.']);
-        else return next(err);
+        } else {
+          return next(err);
+        }
       }
     }
   );
-};
+}
 
-module.exports = userCtrl;
+module.exports = { findAll, findById, update };

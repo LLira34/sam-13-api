@@ -90,8 +90,12 @@ async function update(req, res) {
         price: req.body.price,
       };
     }
-    const res = await Menu.findByIdAndUpdate(id, { $set: menu }, { new: true });
-    if (!res) {
+    const result = await Menu.findByIdAndUpdate(
+      id,
+      { $set: menu },
+      { new: true }
+    );
+    if (!result) {
       res.status(404).send({
         message: `No se puede actualizar el menu con id: ${id}.`,
       });

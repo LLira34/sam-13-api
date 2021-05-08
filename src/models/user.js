@@ -32,7 +32,7 @@ UserSchema.path('email').validate((val) => {
 // Events
 UserSchema.pre('save', (next) => {
   bcrypt.genSalt(10, (err, salt) => {
-    bcrypt.hash(this.password, salt, (err, hash) => {
+    bcrypt.hash(this.password, salt, (_err, hash) => {
       this.password = hash;
       this.saltSecret = salt;
       next();
@@ -52,16 +52,8 @@ UserSchema.methods.verifyPassword = (password) => {
 };
 
 UserSchema.methods.generateJwt = () => {
-  return new Promise((resolve, reject) => {
-    const token = jwt.sign({ _id: this._id }, process.env.JWT_SECRET, {
-      expiresIn: process.env.JWT_EXP,
-    });
-    if (token === '') {
-      const error = new Error();
-      error.message = 'No token generate';
-      reject(error);
-    }
-    resolve(token);
+  return jwt.sign({ _id: this._id }, process.env.JWT_SECRET, {
+    expiresIn: process.env.JWT_EXP,
   });
 };
 

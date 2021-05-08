@@ -21,31 +21,30 @@ async function register(req, res) {
   }
 }
 
-async function authenticate(req, res, next) {
+async function authenticate(req, res) {
   passport.authenticate('local', (err, user, info) => {
     if (err) {
       return res.status(400).send(err);
-    } else if (user) {
-      const token = await user.generateJwt();
-      return res.status(200).send({ token });
-    } else {
-      return res.status(404).send(info);
     }
+    if (user) {
+      return res.status(200).send({ token: user.generateJwt() });
+    }
+    return res.status(404).send(info);
   })(req, res);
 }
 
 async function profile(req, res) {
   try {
     const user = await User.findOne({ _id: req._id });
-    if (!user)
+    if (!user) {
       return res
         .status(404)
         .send({ status: false, message: 'User record not found.' });
-    else
-      return res.status(200).send({
-        status: true,
-        user: _.pick(user, ['fullname', 'email', 'avatar', '_id']),
-      });
+    }
+    return res.status(200).send({
+      status: true,
+      user: _.pick(user, ['fullname', 'email', 'avatar', '_id']),
+    });
   } catch (err) {
     console.error(err);
     res.status(500).send({ message: err.message });
@@ -69,15 +68,11 @@ async function putForgot(req, res) {
       to: email,
       from: 'SAM 13 Admin <sam13@sam13.com>',
       subject: 'SAM 13 - Forgot Password / Reset',
-      text:
-        'You are receiving this because you (or someone else) have requested the reset of the password for your account.\n\n' +
-        'Please click on the following link, or paste this into your browser to complete the process:\n\n' +
-        'http://' +
-        host +
-        '/reset/' +
-        token +
-        '\n\n' +
-        'If you did not request this, please ignore this email and your password will remain unchanged.\n',
+      text: `You are receiving this because you (or someone else) have requested the reset 
+      of the password for your account.\n\n Please click on the following link, or paste 
+      this into your browser to complete the process:\n\n http://${host}/reset/${token} \n\n 
+      If you did not request this, please ignore this email and your password will 
+      remain unchanged.\n`,
     };
     await smtpTransport.sendMail(msg);
     res.status(200).send({
@@ -109,11 +104,8 @@ async function putReset(req, res) {
       to: user.email,
       from: process.env.EMAIL_USER,
       subject: 'Your password has been changed',
-      text:
-        'Hello,\n\n' +
-        'This is a confirmation that the password for your account ' +
-        user.email +
-        ' has just been changed.\n',
+      text: `Hello, \n\n This is a confirmation that the password for your account 
+      ${user.email} has just been changed.\n`,
     };
     await smtpTransport.sendMail(msg);
     res.status(200).send({
