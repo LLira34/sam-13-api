@@ -29,7 +29,7 @@ async function findById(req, res) {
         message: `No se encontró el menu con id: ${id}`,
       });
     }
-  } catch (error) {
+  } catch (err) {
     console.error(err);
     res.status(500).send({ message: err.message });
   }
@@ -90,6 +90,7 @@ async function update(req, res) {
         price: req.body.price,
       };
     }
+    // TODO - Revisar esta parte
     await Menu.findByIdAndUpdate(id, { $set: menu }, { new: true });
     if (!menu) {
       res.status(404).send({

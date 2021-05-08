@@ -1,42 +1,40 @@
 const Order = require('../models/order');
-const orderCtrl = {};
 
-orderCtrl.createOrder = async (req, res) => {
-  const newOrder = new Order({
-    firstName: req.body.firstName,
-    lastName: req.body.lastName,
-    email: req.body.email,
-    phone: req.body.phone,
-    items: req.body.items.map((item) => item._id) || [],
-  });
-  await newOrder.save().then(
-    (rec) => {
-      res.status(200).json(rec);
-    },
-    (err) => {
-      res.status(500).json({ error: 'error' });
-    }
-  );
-};
-
-orderCtrl.getOrders = async (req, res) => {
-  await Order.find()
-    .populate('items')
-    .exec()
-    .then((rec) => {
-      res.status(200).json(rec);
-    })
-    .catch((err) => {
-      res.status(500).json(err);
+async function createOrder(req, res) {
+  try {
+    const newOrder = new Order({
+      firstName: req.body.firstName,
+      lastName: req.body.lastName,
+      email: req.body.email,
+      phone: req.body.phone,
+      items: req.body.items.map((item) => item._id) || [],
     });
-};
+    await newOrder.save();
+    res.status(200).json({ message: 'Se creo la orden con exito' });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+}
 
-orderCtrl.deleteOrder = async (req, res) => {
-  await Order.findByIdAndDelete(req.params.id);
-  res.json({ status: 'Orden Eliminada' });
-};
+async function getOrders(req, res) {
+  try {
+    const orders = await Order.find().populate('items').exec();
+    res.status(200).json(orders);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+}
 
-orderCtrl.download = async (req, res) => {
+async function deleteOrder(req, res) {
+  try {
+    await Order.findByIdAndDelete(req.params.id);
+    res.status(200).json({ message: 'Orden Eliminada' });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+}
+
+async function download(req, res) {
   try {
     const { id } = req.params;
     const order = await Order.findById(id).populate('items');
@@ -59,13 +57,18 @@ orderCtrl.download = async (req, res) => {
       </body>
     </html>`;
     res.pdfFromHTML({
-      filename: 'Detalles-de-la-Orden-' + new Date().getTime() + '.pdf',
+      filename: `Detalles-de-la-Orden-${new Date().getTime()}.pdf`,
       htmlContent: html,
     });
-  } catch (error) {
-    console.log(error);
-    return res.status(500).send(error);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: err.message });
   }
-};
+}
 
-module.exports = orderCtrl;
+module.exports = {
+  createOrder,
+  getOrders,
+  deleteOrder,
+  download,
+};
