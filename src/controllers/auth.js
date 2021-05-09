@@ -1,36 +1,75 @@
 // Dependencies
 const crypto = require('crypto');
 const _ = require('lodash');
-const passport = require('passport');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 // Local variables
 const User = require('../models/user');
 const { smtpTransport } = require('../util');
 
 async function register(req, res) {
   try {
-    const user = new User({
-      fullname: req.body.fullname,
-      email: req.body.email,
-      password: req.body.password,
-    });
+    const { body } = req;
+    if (!(body.fullname && body.email && body.password)) {
+      return res
+        .status(400)
+        .send({ message: 'Los datos proporcionados no son válidos' });
+    }
+    // const errors = [];
+    // if (!body.fullname || body.fullname.trim() === '') {
+    //   errors.push('El nombre completo no puede estar vacío');
+    // }
+    // if (!body.email) {
+    //   errors.push('El correo electrónico no puede estar vacío');
+    // }
+    // if (!body.password) {
+    //   errors.push('La contraseña no puede estar vacía');
+    // }
+    // if (errors.length > 0) {
+    //   return res
+    //     .status(400)
+    //     .send({ message: 'Datos no formateados correctamente', errors });
+    // }
+    const user = new User(body);
+    const salt = await bcrypt.genSalt(10);
+    const hash = await bcrypt.hash(user.password, salt);
+    user.password = hash;
+    user.saltSecret = salt;
     const doc = await user.save();
     res.status(201).send(doc);
   } catch (err) {
     console.error(err);
-    res.status(500).send({ message: err.message });
+    if (err.code === 11000) {
+      res.status(400).send({
+        message: 'Se encontró una dirección de correo electrónico duplicada.',
+      });
+    } else {
+      res.status(500).send({ message: err.message });
+    }
   }
 }
 
 async function authenticate(req, res) {
-  passport.authenticate('local', (err, user, info) => {
-    if (err) {
-      return res.status(400).send(err);
+  try {
+    const { body } = req;
+    const user = await User.findOne({ email: body.email });
+    if (!user) {
+      return res
+        .status(400)
+        .send({ message: 'El correo electrónico no está registrado' });
     }
-    if (user) {
-      return res.status(200).send({ token: user.generateJwt() });
+    const matched = await bcrypt.compare(body.password, user.password);
+    if (!matched) {
+      return res.status(401).send({ message: 'Credenciales invalidas' });
     }
-    return res.status(404).send(info);
-  })(req, res);
+    const token = jwt.sign({ _id: user._id }, process.env.JWT_SECRET, {
+      expiresIn: process.env.JWT_EXP,
+    });
+    return res.status(201).send({ token });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send({ message: err.message });
+  }
 }
 
 async function profile(req, res) {
@@ -43,7 +82,7 @@ async function profile(req, res) {
     }
     return res.status(200).send({
       status: true,
-      user: _.pick(user, ['fullname', 'email', 'avatar', '_id']),
+      user: _.pick(user, ['fullname', 'email', 'id']),
     });
   } catch (err) {
     console.error(err);
@@ -78,9 +117,9 @@ async function putForgot(req, res) {
     res.status(200).send({
       message: `An e-mail has been sent to ${email} with further instructions.`,
     });
-  } catch (e) {
-    console.error(e);
-    res.status(500).send({ message: e.error });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send({ message: err.message });
   }
 }
 
@@ -111,8 +150,9 @@ async function putReset(req, res) {
     res.status(200).send({
       message: 'Success! Your password has been changed.',
     });
-  } catch (e) {
-    res.status(500).send({ message: e.error.message });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send({ message: err.message });
   }
 }
 
